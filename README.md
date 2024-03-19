@@ -11,7 +11,10 @@ To ensure compatibility and manage dependencies, it is recommended to create a n
 ```bash
 conda create --name esm_ptm_env python=3.8
 conda activate esm_ptm_env
-# Install required packages listed in requirements.txt
+```
+
+### Install required packages:
+```bash
 pip install -r requirements.txt
 ```
 
