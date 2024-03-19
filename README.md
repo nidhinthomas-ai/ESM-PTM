@@ -59,8 +59,8 @@ ESM-PTM-main/
 ```
 
 **esm_ptm**: Contains the main scripts for the project.  
-**datasets**: Includes the datasets used for training and testing the model.
-**models**: Stores the trained model files.
+**datasets**: Includes the datasets used for training and testing the model.  
+**models**: Stores the trained model files.  
 **results**: Stores the results from testing the model.
 
 ## Model Description
