@@ -1,81 +1,118 @@
-import argparse
 import os
-from SplitDataset import split_dataset
-from Embedding import ESMEmbedding
-from CNNModel import CNNModel
 import torch
+import numpy as np
+import pandas as pd
+from torch.utils.data import DataLoader, TensorDataset
+from sklearn.metrics import accuracy_score, roc_auc_score, precision_score, recall_score, matthews_corrcoef
+import argparse
 
-class ESM_PTM_Trainer:
-    """
-    Trainer class for PTG-PLM, a tool for PTM site prediction using Protein Language Models and CNN.
-    """
+from ExtractPeptide import PeptideExtractor
+from Embedding import ProteinEmbeddingExtractor
+from SplitDataset import DatasetSplitter
+from CNNModel import CNNModel
+
+def main(args):
+    # Check for device availability
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Validate the existence of necessary files
+    fasta_path = os.path.join(args.benchmarks_dir, f'{args.benchmark_name}.fasta')
+    pos_path = os.path.join(args.benchmarks_dir, f'{args.benchmark_name}_pos.csv')
+    if not os.path.exists(fasta_path) or not os.path.exists(pos_path):
+        raise IOError(f"Required data files are missing in {args.benchmarks_dir}")
+
+    embedding_extractor = ProteinEmbeddingExtractor(args.plm)
+    dataset_splitter = DatasetSplitter(args.plm, args.benchmarks_dir, args.benchmark_name, args.window_size, args.site)
+    train_set, valid_set = dataset_splitter.split_dataset()
+
+    X_train = torch.from_numpy(embedding_extractor.get_embedding(train_set, args.window_size)).float()
+    Y_train = torch.from_numpy(train_set['label'].values).float().to(device)
+    X_valid = torch.from_numpy(embedding_extractor.get_embedding(valid_set, args.window_size)).float()
+    Y_valid = torch.from_numpy(valid_set['label'].values).float().to(device)
     
-    def __init__(self, benchmarks_dir, benchmark_name, site, window_size, plm, config_file, model_save_path):
-        """
-        Initializes the trainer with configuration parameters.
+    X_train, X_valid = X_train.to(device), X_valid.to(device)
 
-        Args:
-            benchmarks_dir (str): Directory path where benchmark datasets are stored.
-            benchmark_name (str): Name of the benchmark dataset.
-            site (str): PTM site residue(s); for more than one residue, format as ('X', 'Y').
-            window_size (int): Number of residues surrounding the PTM residues.
-            plm (str): Protein language model to use for embeddings.
-            config_file (str): Path to the CNN parameters configuration file.
-            model_save_path (str): Path to save the trained model.
-        """
-        self.benchmarks_dir = benchmarks_dir
-        self.benchmark_name = benchmark_name
-        self.site = site
-        self.window_size = window_size
-        self.plm = plm
-        self.config_file = config_file
-        self.model_save_path = model_save_path
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Convert numpy arrays to PyTorch tensors
+    X_train_torch = torch.tensor(X_train, dtype=torch.float32)
+    Y_train_torch = torch.tensor(Y_train, dtype=torch.float32).view(-1, 1)
+    X_valid_torch = torch.tensor(X_valid, dtype=torch.float32)
+    Y_valid_torch = torch.tensor(Y_valid, dtype=torch.float32).view(-1, 1)
 
-    def run(self):
-        """
-        Runs the training process with the specified configuration.
-        """
-        if not os.path.exists(os.path.join(self.benchmarks_dir, f'{self.benchmark_name}.fasta')):
-            raise IOError(f'The protein sequences FASTA file does not exist: {os.path.join(self.benchmarks_dir, f"{self.benchmark_name}.fasta")}')
-        
-        if not os.path.exists(os.path.join(self.benchmarks_dir, f'{self.benchmark_name}_pos.csv')):
-            raise IOError(f'The positive sites file does not exist: {os.path.join(self.benchmarks_dir, f"{self.benchmark_name}_pos.csv")}')
-        
-        if (2 * self.window_size + 1) % 2 == 0:
-            print('The window size (2*w+1) must be odd!!')
-            return
-        
-        # Initialize and get embeddings
-        embedding = ESMEmbedding(self.plm)
-        train_set, valid_set = split_dataset(self.benchmarks_dir, self.benchmark_name, self.window_size, self.site)
-        X_train, Y_train = embedding.get_embeddings(train_set, self.window_size)
-        X_valid, Y_valid = embedding.get_embeddings(valid_set, self.window_size)
-        
-        # Move tensors to the specified device
-        X_train, Y_train = X_train.to(self.device), Y_train.to(self.device)
-        X_valid, Y_valid = X_valid.to(self.device), Y_valid.to(self.device)
-        
-        # Train the CNN model
-        model = CNNModel(input_size=X_train.shape[1], config_file=self.config_file).to(self.device)
-        model.train(X_train, Y_train, X_valid, Y_valid)
-        
-        model_path = os.path.join(self.model_save_path, f'PTG-PLM_{self.plm}.pt')
-        torch.save(model.state_dict(), model_path)
-        print(f'Model saved to {model_path}')
+    # Ensure tensors are correctly shaped for PyTorch [batch_size, channels, seq_length]
+    X_train_torch = X_train_torch.permute(0, 2, 1)
+    X_valid_torch = X_valid_torch.permute(0, 2, 1)
 
-def main():
-    parser = argparse.ArgumentParser(description='ESM_PTM: A tool for PTM site prediction using ESM Protein Language Model and CNN')
-    parser.add_argument('--BENCHMARKS_DIR', type=str, default='datasets/', help='Dataset path')
-    parser.add_argument('--benchmark_name', type=str, default='N_gly', help='Dataset name')
-    parser.add_argument('--site', default='N', type=str, help="PTM site residue(s) for more than one residue, format as ('X', 'Y')")
-    parser.add_argument('--w', default=12, type=int, help='Number of residues surrounding the PTM residues')
-    parser.add_argument('--PLM', default='ESM-1b', type=str, help='Protein language model to use for embeddings')
-    parser.add_argument('--model_save_path', default='models/', type=str, help='Path to save the trained model')
+    # Define dataset and dataloader
+    train_dataset = TensorDataset(X_train_torch, Y_train_torch)
+    valid_dataset = TensorDataset(X_valid_torch, Y_valid_torch)
+    train_loader = DataLoader(dataset=train_dataset, batch_size=64, shuffle=True)
+    valid_loader = DataLoader(dataset=valid_dataset, batch_size=64, shuffle=False)
+
+    # Model initialization
+    model = CNNModel(input_shape=X_train_torch.shape[1:]).to(device)
+
+    # Optimizer and loss function
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    criterion = torch.nn.BCELoss()
+
+    # Training loop
+    for epoch in range(100):
+        model.train()
+        for data, target in train_loader:
+            data, target = data.to(device), target.to(device)
+            optimizer.zero_grad()
+            output = model(data)
+            loss = criterion(output, target)
+            loss.backward()
+            optimizer.step()
+        print(f'Epoch {epoch+1}, Loss: {loss.item()}')
+
+    # Save the model
+    torch.save(model.state_dict(), os.path.join(args.model_save_path, "ESM_PTM.pt"))
+    print(f'Model saved to {os.path.join(args.model_save_path, "ESM_PTM.pt")}')
+
+    # Validation
+    model.eval()
+    valid_predictions = []
+    valid_targets = []
+    with torch.no_grad():
+        for data, target in valid_loader:
+            data, target = data.to(device), target.to(device)
+            output = model(data)
+            predictions = output.sigmoid().round()  # Assuming binary classification
+            valid_predictions.extend(predictions.cpu().numpy())
+            valid_targets.extend(target.cpu().numpy())
+
+    accuracy = accuracy_score(np.round(valid_predictions), valid_targets)
+    print(f'Validation Accuracy: {accuracy}')
+
+    recall = recall_score(np.round(valid_predictions), valid_targets)
+    precision = precision_score(np.round(valid_predictions), valid_targets)
+    auc = roc_auc_score(np.round(valid_predictions), valid_targets)
+    mcc = matthews_corrcoef(np.round(valid_predictions), valid_targets)
+
+    metrics = {
+        'Accuracy': accuracy,
+        'Recall': recall,
+        'Precision': precision,
+        'AUC': auc,
+        'MCC': mcc
+    }
+
+    # Save results to CSV
+    results_df = pd.DataFrame([metrics], index=['testing_results'])
+    results_path = os.path.join('validation_results.csv')
+    results_df.to_csv(results_path)
+    print(f'Results saved to {results_path}')
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Train and validate a CNN model for protein sequence classification.')
+    parser.add_argument('--benchmarks_dir', type=str, default='datasets/', help='Directory containing the datasets')
+    parser.add_argument('--benchmark_name', type=str, default='N_gly', help='Name of the benchmark dataset')
+    parser.add_argument('--site', type=str, default='N', help='PTM site residues')
+    parser.add_argument('--window_size', type=int, default=12, help='Window size for residues surrounding the PTM site')
+    parser.add_argument('--plm', type=str, default='esm1v_t33_650M_UR90S_1', help='Protein language model used for embeddings')
+    parser.add_argument('--model_save_path', type=str, default='models/', help='Path to save the trained model')
     args = parser.parse_args()
-    
-    trainer = ESM_PTM_Trainer(args.BENCHMARKS_DIR, args.benchmark_name, args.site, args.w, args.PLM, args.config_file, args.model_save_path)
-    trainer.run()
 
-if __name__ == '__main__':
-    main()
+    main(args)

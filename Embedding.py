@@ -58,7 +58,3 @@ class ProteinEmbeddingExtractor:
         embeddings = token_representations.cpu().detach().numpy()
         embeddings = embeddings[:, 1:window * 2 + 2, :]
         return embeddings
-
-if __name__ == "__main__":
-
-    extractor = ProteinEmbeddingExtractor()
