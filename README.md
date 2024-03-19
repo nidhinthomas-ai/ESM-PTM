@@ -3,6 +3,8 @@
 ## Summary
 This project focuses on the prediction of N-linked glycosylation sites within proteins, leveraging a unique approach that combines evolutionary scale modeling (ESM) for peptide embedding and deep learning for classification. Given a protein amino acid sequence, the provided scripts analyze potential glycosylation sites, crucial for understanding protein function and for therapeutic applications.
 
+![Alt text](./ESM_PTM.png)
+
 ## Pre-requisites
 
 ### Creating a Conda Environment:
