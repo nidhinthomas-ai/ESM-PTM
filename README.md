@@ -35,7 +35,7 @@ The datasets and base model architecture used in this project are obtained from 
 ### Repository Layout:
 
 The repository is organized as follows:
-
+```bash
 ESM-PTM-main/  
 ├── esm_ptm/  
 │   ├── CNNModel.py  
@@ -55,7 +55,8 @@ ESM-PTM-main/
 ├── predict.py  
 ├── train.py  
 ├── RESDME.md  
-└── requirements.txt  
+└── requirements.txt 
+```
 
 **esm_ptm**: Contains the main scripts for the project.  
 **datasets**: Includes the datasets used for training and testing the model.
