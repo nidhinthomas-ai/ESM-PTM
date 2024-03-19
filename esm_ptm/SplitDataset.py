@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import re
 
-from ExtractPeptide import PeptideExtractor
+from esm_ptm.ExtractPeptide import PeptideExtractor
 
 class DatasetSplitter:
     """

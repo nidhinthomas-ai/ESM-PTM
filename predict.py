@@ -6,10 +6,10 @@ import numpy as np
 from sklearn.metrics import accuracy_score, roc_auc_score, precision_score, recall_score, matthews_corrcoef
 from torch.utils.data import DataLoader, TensorDataset
 
-from ExtractPeptide import PeptideExtractor
-from Embedding import ProteinEmbeddingExtractor
-from SplitDataset import DatasetSplitter
-from CNNModel import CNNModel
+from esm_ptm.ExtractPeptide import PeptideExtractor
+from esm_ptm.Embedding import ProteinEmbeddingExtractor
+from esm_ptm.SplitDataset import DatasetSplitter
+from esm_ptm.CNNModel import CNNModel
 
 class Predictor:
     def __init__(self, benchmarks_dir, benchmark_name, site, window_size, plm, model_path, result_path):
