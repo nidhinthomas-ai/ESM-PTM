@@ -36,10 +36,31 @@ The datasets and base model architecture used in this project are obtained from 
 
 The repository is organized as follows:
 
-esm_ptm/: Contains the main scripts for the project.
-datasets/: Includes the datasets used for training and testing the model.
-models/: Stores the trained model files.
-results/: Stores the results from testing the model.
+your-repository-name/
+├── esm_ptm/
+│   ├── CNNModel.py
+│   ├── Embedding.py
+│   ├── ExtractPeptide.py
+│   ├── SplitDataset.py
+│   ├── ML.py
+│   └── __init__()
+├── datasets/
+│   ├── N_Gly.fasta
+│   ├── N_Gly_pos.csv
+│   └── Rest of the dataset
+├── models/
+│   └── ESM_PTM.pt
+├── results/
+│   └── testing_results.csv
+├── predict.py
+├── train.py
+├── RESDME.md
+└── requirements.txt
+
+**esm_ptm**: Contains the main scripts for the project.  
+**datasets**: Includes the datasets used for training and testing the model.
+**models**: Stores the trained model files.
+**results**: Stores the results from testing the model.
 
 ## Model Description
 
